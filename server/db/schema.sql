@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'User'
+    role TEXT DEFAULT 'User',
+    status TEXT DEFAULT 'Pending'
 );
 
 CREATE TABLE IF NOT EXISTS items (
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS items (
     quantity INTEGER NOT NULL,
     city TEXT NOT NULL,
     status TEXT DEFAULT 'Available',
+    logistic_status TEXT DEFAULT 'Pending',
     assigned_to INTEGER,
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(assigned_to) REFERENCES users(id)

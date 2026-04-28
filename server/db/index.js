@@ -20,10 +20,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 console.log('Schema initialized');
                 
                 db.run('ALTER TABLE users ADD COLUMN email TEXT', (alterErr) => {
-                    if (alterErr && !alterErr.message.includes('duplicate column')) {
-                    } else if (!alterErr) {
-                        console.log('Migration: Added email column to users table');
-                    }
+                    if (!alterErr) console.log('Migration: Added email column to users table');
+                });
+
+                db.run('ALTER TABLE users ADD COLUMN status TEXT DEFAULT \'Pending\'', (alterErr) => {
+                    if (!alterErr) console.log('Migration: Added status column to users table');
+                });
+
+                db.run('ALTER TABLE items ADD COLUMN logistic_status TEXT DEFAULT \'Pending\'', (alterErr) => {
+                    if (!alterErr) console.log('Migration: Added logistic_status column to items table');
                 });
 
                 db.run('CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)', (err) => {

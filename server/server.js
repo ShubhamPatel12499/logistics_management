@@ -29,11 +29,11 @@ async function seedAdmin() {
         const adminExists = await get("SELECT id, email FROM users WHERE username = 'admin'");
         if (!adminExists) {
             const hash = await bcrypt.hash('admin123', 10);
-            await run("INSERT INTO users (username, password_hash, email, role) VALUES ('admin', ?, 'admin@ngo.org', 'Admin')", [hash]);
+            await run("INSERT INTO users (username, password_hash, email, role, status) VALUES ('admin', ?, 'admin@ngo.org', 'Admin', 'Approved')", [hash]);
             console.log('Seeded hardcoded Admin user -> admin / admin123 (email: admin@ngo.org)');
-        } else if (!adminExists.email) {
-            await run("UPDATE users SET email = 'admin@ngo.org' WHERE username = 'admin'");
-            console.log('Retroactively added email (admin@ngo.org) to existing admin account');
+        } else {
+            await run("UPDATE users SET email = 'admin@ngo.org', status = 'Approved' WHERE username = 'admin'");
+            console.log('Retroactively ensured admin account is approved and has email');
         }
     } catch(err) {
         console.error('Error seeding admin', err);

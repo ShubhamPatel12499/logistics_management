@@ -9,6 +9,7 @@ router.post('/categories', authenticateToken, requireAdmin, logisticsController.
 router.get('/events', authenticateToken, logisticsController.getEvents);
 router.post('/events', authenticateToken, logisticsController.addEvent);
 router.delete('/events/:id', authenticateToken, requireAdmin, logisticsController.deleteEvent);
+router.get('/export', authenticateToken, requireAdmin, logisticsController.exportToExcel);
 router.get('/', authenticateToken, logisticsController.getAllItems);
 router.post('/', authenticateToken, logisticsController.createItem);
 router.put('/:id', authenticateToken, logisticsController.updateItem);

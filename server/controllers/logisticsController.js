@@ -2,32 +2,56 @@ const { run, get, all } = require('../db/promise');
 
 exports.getAllItems = async (req, res) => {
     try {
-        const { city, status, category, event } = req.query;
+        const { city, status, logistic_status, category, event, page, limit } = req.query;
         let query = 'SELECT items.*, users.username as assigned_to_username FROM items LEFT JOIN users ON items.assigned_to = users.id WHERE 1=1';
+        let countQuery = 'SELECT COUNT(*) as count FROM items WHERE 1=1';
         let params = [];
         
         if (city) {
-            query += ' AND city LIKE ?';
+            query += ' AND items.city LIKE ?';
+            countQuery += ' AND city LIKE ?';
             params.push(`%${city}%`);
         }
         if (status) {
-            query += ' AND status = ?';
+            query += ' AND items.status = ?';
+            countQuery += ' AND status = ?';
             params.push(status);
         }
+        if (logistic_status) {
+            query += ' AND items.logistic_status = ?';
+            countQuery += ' AND logistic_status = ?';
+            params.push(logistic_status);
+        }
         if (category) {
-            query += ' AND category = ?';
+            query += ' AND items.category = ?';
+            countQuery += ' AND category = ?';
             params.push(category);
         }
         if (event) {
-            query += ' AND event = ?';
+            query += ' AND items.event = ?';
+            countQuery += ' AND event = ?';
             params.push(event);
         }
         
-        // Ensure consistent sorting
-        query += ' ORDER BY id DESC';
+        query += ' ORDER BY items.id DESC';
 
-        const items = await all(query, params);
-        res.json(items);
+        if (page || limit) {
+            const pageNum = parseInt(page) || 1;
+            const limitNum = parseInt(limit) || 10;
+            const offset = (pageNum - 1) * limitNum;
+            query += ' LIMIT ? OFFSET ?';
+            const items = await all(query, [...params, limitNum, offset]);
+            const totalResult = await get(countQuery, params);
+            res.json({
+                data: items,
+                total: totalResult.count,
+                page: pageNum,
+                totalPages: Math.ceil(totalResult.count / limitNum)
+            });
+        } else {
+            const items = await all(query, params);
+            res.json(items);
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -36,15 +60,16 @@ exports.getAllItems = async (req, res) => {
 
 exports.createItem = async (req, res) => {
     try {
-        const { name, category, event, quantity, city } = req.body;
+        const { name, category, event, quantity, city, logistic_status } = req.body;
         if (!name || !category || quantity == null || !city) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         const assigned_to = req.user.role === 'Admin' ? null : req.user.id;
         const status = req.user.role === 'Admin' ? 'Available' : 'Assigned';
+        const logStatus = logistic_status || 'Pending';
         const result = await run(
-            'INSERT INTO items (name, category, event, quantity, city, status, assigned_to) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, category, event || null, quantity, city, status, assigned_to]
+            'INSERT INTO items (name, category, event, quantity, city, status, logistic_status, assigned_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, category, event || null, quantity, city, status, logStatus, assigned_to]
         );
         if (assigned_to) {
             await run('INSERT INTO history (item_id, user_id, action) VALUES (?, ?, ?)', [result.lastID, assigned_to, 'Created & Assigned']);
@@ -59,7 +84,7 @@ exports.createItem = async (req, res) => {
 exports.updateItem = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, category, event, quantity, city } = req.body;
+        const { name, category, event, quantity, city, logistic_status } = req.body;
         
         const items = await all('SELECT * FROM items WHERE id = ?', [id]);
         if (items.length === 0) return res.status(404).json({ error: 'Item not found' });
@@ -71,8 +96,8 @@ exports.updateItem = async (req, res) => {
         }
 
         await run(
-            'UPDATE items SET name = ?, category = ?, event = ?, quantity = ?, city = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-            [name || item.name, category || item.category, event !== undefined ? event : item.event, quantity || item.quantity, city || item.city, id]
+            'UPDATE items SET name = ?, category = ?, event = ?, quantity = ?, city = ?, logistic_status = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+            [name || item.name, category || item.category, event !== undefined ? event : item.event, quantity || item.quantity, city || item.city, logistic_status || item.logistic_status, id]
         );
 
         await run('INSERT INTO history (item_id, user_id, action) VALUES (?, ?, ?)', [id, req.user.id, 'Updated Data']);
@@ -87,6 +112,8 @@ exports.updateItem = async (req, res) => {
 exports.deleteItem = async (req, res) => {
     try {
         const { id } = req.params;
+        await run('DELETE FROM history WHERE item_id = ?', [id]);
+        await run('DELETE FROM transfer_requests WHERE item_id = ?', [id]);
         await run('DELETE FROM items WHERE id = ?', [id]);
         res.json({ message: 'Item deleted' });
     } catch (err) {
@@ -352,6 +379,42 @@ exports.deleteEvent = async (req, res) => {
         await run('DELETE FROM events WHERE id = ?', [id]);
         
         res.json({ message: 'Event permanently deleted and removed from affected elements' });
+    } catch(err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+}
+
+exports.exportToExcel = async (req, res) => {
+    try {
+        const items = await all('SELECT items.*, users.username as assigned_to_username FROM items LEFT JOIN users ON items.assigned_to = users.id ORDER BY items.id DESC');
+        
+        const exceljs = require('exceljs');
+        const workbook = new exceljs.Workbook();
+        const worksheet = workbook.addWorksheet('Logistics Master Sheet');
+        
+        worksheet.columns = [
+            { header: 'ID', key: 'id', width: 10 },
+            { header: 'Name', key: 'name', width: 30 },
+            { header: 'Category', key: 'category', width: 20 },
+            { header: 'Quantity', key: 'quantity', width: 15 },
+            { header: 'City', key: 'city', width: 20 },
+            { header: 'Status (Stock)', key: 'status', width: 15 },
+            { header: 'Logistic Status', key: 'logistic_status', width: 20 },
+            { header: 'Assigned To', key: 'assigned_to_username', width: 20 },
+            { header: 'Event', key: 'event', width: 20 },
+            { header: 'Last Updated', key: 'last_updated', width: 25 },
+        ];
+        
+        items.forEach(item => {
+            worksheet.addRow(item);
+        });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=' + 'Logistics_Master_Sheet.xlsx');
+        
+        await workbook.xlsx.write(res);
+        res.end();
     } catch(err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });

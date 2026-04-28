@@ -1,12 +1,18 @@
 export type UserRole = 'Admin' | 'User';
 
+export type UserStatus = 'Pending' | 'Approved' | 'Rejected';
+
 export type User = {
     id: number;
     username: string;
+    email?: string;
     role: UserRole;
+    status?: UserStatus;
 };
 
 export type ItemStatus = 'Available' | 'Assigned' | 'Maintenance';
+
+export type LogisticStatus = 'Pending' | 'In Progress' | 'Completed';
 
 export type LogisticsItem = {
     id: number;
@@ -16,6 +22,7 @@ export type LogisticsItem = {
     quantity: number;
     city: string;
     status: ItemStatus;
+    logistic_status?: LogisticStatus;
     assigned_to: number | null;
     assigned_to_username: string | null;
     last_updated: string;

@@ -39,7 +39,7 @@ export default function Login() {
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {error && (
-                        <div className="p-3 text-sm text-red-200 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
+                        <div className={`p-3 text-sm border rounded-xl text-center ${error.includes('approval') ? 'text-yellow-200 bg-yellow-500/10 border-yellow-500/20' : 'text-red-200 bg-red-500/10 border-red-500/20'}`}>
                             {error}
                         </div>
                     )}

@@ -9,13 +9,23 @@ export default function Register() {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [role, setRole] = useState('User');
     const [error, setError] = useState('');
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (role === 'Admin') {
+            const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,12}$/;
+            if (!strongPasswordRegex.test(password)) {
+                setError('Admin password must be 8-12 chars, include uppercase, lowercase, number, and special character.');
+                return;
+            }
+        }
+
         try {
-            await api.post('/auth/register', { username, email, password, role: 'User' });
+            await api.post('/auth/register', { username, email, password, role });
             router.push('/login');
         } catch (err: any) {
             setError(err.response?.data?.error || 'Registration failed');
@@ -77,6 +87,18 @@ export default function Register() {
                             placeholder="Choose a secure password"
                             required
                         />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-neutral-300 ml-1">Role</label>
+                        <select
+                            value={role}
+                            onChange={(e) => setRole(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-neutral-900/50 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all appearance-none"
+                        >
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
                     </div>
 
                     <button

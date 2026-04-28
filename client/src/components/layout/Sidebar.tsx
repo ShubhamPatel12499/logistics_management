@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Home, Package, Users, X } from 'lucide-react';
+import { Home, Package, Users, X, CheckCircle } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
@@ -10,6 +10,7 @@ export function Sidebar({ open, setOpen }: { open: boolean, setOpen: (open: bool
     const navItems = [
         { href: '/', label: 'Dashboard', icon: Home, adminOnly: false },
         { href: '/logistics', label: 'Logistics', icon: Package, adminOnly: false },
+        { href: '/admin/completed-logistics', label: 'Completed Logistics', icon: CheckCircle, adminOnly: true },
         { href: '/users', label: 'User Directory', icon: Users, adminOnly: true },
     ];
 

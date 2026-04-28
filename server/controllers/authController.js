@@ -15,12 +15,20 @@ exports.register = async (req, res) => {
             return res.status(409).json({ error: 'Username or email already exists' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
         const userRole = role === 'Admin' ? 'Admin' : 'User';
         
+        if (userRole === 'Admin') {
+            const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,12}$/;
+            if (!strongPasswordRegex.test(password)) {
+                return res.status(400).json({ error: 'Admin password must be 8-12 characters long, include at least one uppercase letter, one lowercase letter, one number, and one special character.' });
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
         const result = await run(
-            'INSERT INTO users (username, password_hash, email, role) VALUES (?, ?, ?, ?)',
-            [username, hashedPassword, email, userRole]
+            'INSERT INTO users (username, password_hash, email, role, status) VALUES (?, ?, ?, ?, ?)',
+            [username, hashedPassword, email, userRole, 'Pending']
         );
 
         res.status(201).json({ message: 'User registered successfully', userId: result.lastID });
@@ -45,6 +53,10 @@ exports.login = async (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        if (user.status !== 'Approved') {
+            return res.status(403).json({ error: 'Your account is awaiting admin approval' });
         }
 
         const token = jwt.sign(
