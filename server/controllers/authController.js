@@ -26,9 +26,11 @@ exports.register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         
+        const initialStatus = userRole === 'Admin' ? 'Approved' : 'Pending';
+
         const result = await run(
             'INSERT INTO users (username, password_hash, email, role, status) VALUES (?, ?, ?, ?, ?)',
-            [username, hashedPassword, email, userRole, 'Pending']
+            [username, hashedPassword, email, userRole, initialStatus]
         );
 
         res.status(201).json({ message: 'User registered successfully', userId: result.lastID });
